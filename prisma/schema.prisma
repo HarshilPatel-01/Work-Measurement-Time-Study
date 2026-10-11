@@ -1,0 +1,150 @@
+// Clean local academic schema for Pen Assembly Time Study
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Study {
+  id           String        @id @default(cuid())
+  name         String
+  productModel String        @default("Standard Ballpoint Pen")
+  workstation  String        @default("WS-01 Pen Assembly")
+  operator     String?       @default("Operator 1")
+  date         DateTime      @default(now())
+  shift        String        @default("General")
+  method       String        @default("BEFORE") // BEFORE | AFTER
+  description  String?
+  targetCycle  Int           @default(10)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  elements     Element[]
+  observations Observation[]
+  ratings      Rating[]
+  allowances   Allowance[]
+  results      Result[]
+
+  @@index([method])
+  @@index([date])
+}
+
+model Element {
+  id           String        @id @default(cuid())
+  studyId      String
+  name         String
+  description  String?
+  type         String        @default("MANUAL") // MANUAL | MACHINE | DELAY
+  order        Int           @default(1)
+  startPoint   String?
+  endPoint     String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  study        Study         @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  observations Observation[]
+  ratings      Rating[]
+
+  @@index([studyId])
+  @@index([order])
+}
+
+model Observation {
+  id            String    @id @default(cuid())
+  studyId       String
+  elementId     String
+  cycleNumber   Int
+  observedTime  Float
+  isOutlier     Boolean   @default(false)
+  outlierReason String?
+  notes         String?
+  recordedAt    DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+
+  study         Study     @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  element       Element   @relation(fields: [elementId], references: [id], onDelete: Cascade)
+
+  @@unique([studyId, elementId, cycleNumber])
+  @@index([studyId])
+  @@index([elementId])
+}
+
+model Rating {
+  id                String   @id @default(cuid())
+  studyId           String
+  elementId         String
+  system            String   @default("WESTINGHOUSE")
+  skillRating       Float?   @default(0.0)
+  effortRating      Float?   @default(0.0)
+  conditionRating   Float?   @default(0.0)
+  consistencyRating Float?   @default(0.0)
+  ratingPercent     Float    @default(100)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  study             Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  element           Element  @relation(fields: [elementId], references: [id], onDelete: Cascade)
+
+  @@unique([studyId, elementId])
+  @@index([studyId])
+}
+
+model Allowance {
+  id           String   @id @default(cuid())
+  studyId      String   @unique
+  personal     Float    @default(5)
+  fatigue      Float    @default(4)
+  delay        Float    @default(1)
+  special      Float    @default(0)
+  totalPercent Float    @default(10)
+  formula      String   @default("ADDITIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  study        Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+}
+
+model Result {
+  id                     String   @id @default(cuid())
+  studyId                String
+  elementId              String?
+  avgObservedTime        Float
+  normalTime             Float
+  standardTime           Float
+  stdDeviation           Float
+  variance               Float
+  coefficientOfVariation Float
+  confidenceIntervalLow  Float
+  confidenceIntervalHigh Float
+  observationsRequired   Int
+  observationsActual     Int
+  isSufficient           Boolean
+  outputPerHour          Float
+  outputPerDay           Float
+  efficiency             Float
+  improvementPercent     Float?
+  timeSavedSeconds       Float?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  study                  Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+
+  @@index([studyId])
+}
+
+model AllowancePreset {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  personal    Float
+  fatigue     Float
+  delay       Float
+  special     Float
+  description String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
